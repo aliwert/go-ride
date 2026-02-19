@@ -13,6 +13,7 @@ type Config struct {
 	DatabaseURL string `mapstructure:"DATABASE_URL"`
 	RedisURL    string `mapstructure:"REDIS_URL"`
 	KafkaURL    string `mapstructure:"KAFKA_URL"`
+	JWTSecret   string `mapstructure:"JWT_SECRET"`
 }
 
 func LoadConfig(path string) (Config, error) {
