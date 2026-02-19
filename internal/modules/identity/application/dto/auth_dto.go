@@ -3,16 +3,16 @@ package dto
 import "time"
 
 type RegisterUserRequest struct {
-	Email     string
-	Password  string
-	FirstName string
-	LastName  string
-	Role      string
+	Email     string `json:"email"`
+	Password  string `json:"password"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Role      string `json:"role"`
 }
 
 type LoginRequest struct {
-	Email    string
-	Password string
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 // returned after a successful register or login.
