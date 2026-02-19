@@ -10,19 +10,23 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
+	"github.com/redis/go-redis/v9"
 
 	"github.com/aliwert/go-ride/internal/modules/identity"
+	"github.com/aliwert/go-ride/internal/modules/location"
 	"github.com/aliwert/go-ride/internal/platform/config"
 	"github.com/aliwert/go-ride/internal/platform/database"
+	"github.com/aliwert/go-ride/internal/platform/middleware"
 )
 
 type Server struct {
-	fiberApp *fiber.App
-	cfg      *config.Config
-	db       *database.Postgres
+	fiberApp    *fiber.App
+	cfg         *config.Config
+	db          *database.Postgres
+	redisClient *redis.Client
 }
 
-func NewServer(cfg *config.Config, db *database.Postgres) *Server {
+func NewServer(cfg *config.Config, db *database.Postgres, redisClient *redis.Client) *Server {
 	app := fiber.New(fiber.Config{
 		AppName:      "go-ride",
 		ReadTimeout:  10 * time.Second,
@@ -36,9 +40,10 @@ func NewServer(cfg *config.Config, db *database.Postgres) *Server {
 	app.Use(cors.New())
 
 	return &Server{
-		fiberApp: app,
-		cfg:      cfg,
-		db:       db,
+		fiberApp:    app,
+		cfg:         cfg,
+		db:          db,
+		redisClient: redisClient,
 	}
 }
 
@@ -47,7 +52,11 @@ func NewServer(cfg *config.Config, db *database.Postgres) *Server {
 func (s *Server) MountHandlers() {
 	v1 := s.fiberApp.Group("/api/v1")
 
+	// auth middleware protects modules that require a valid JWT; identity stays public
+	authMid := middleware.RequireAuth(s.cfg.JWTSecret)
+
 	identity.InitModule(v1, s.db.Pool, s.cfg.JWTSecret)
+	location.InitModule(v1, s.redisClient, authMid)
 }
 
 // starts the server and blocks until a termination signal arrives.
@@ -75,6 +84,11 @@ func (s *Server) Run() {
 
 	s.db.Close()
 	log.Println("INFO: PostgreSQL connection pool closed")
+
+	if s.redisClient != nil {
+		s.redisClient.Close()
+	}
+	log.Println("INFO: Redis client closed")
 
 	log.Println("INFO: go-ride API server stopped gracefully")
 }

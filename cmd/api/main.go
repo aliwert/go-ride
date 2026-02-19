@@ -5,6 +5,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/aliwert/go-ride/internal/platform/cache"
 	"github.com/aliwert/go-ride/internal/platform/config"
 	"github.com/aliwert/go-ride/internal/platform/database"
 	"github.com/aliwert/go-ride/internal/platform/server"
@@ -27,7 +28,13 @@ func main() {
 	}
 	log.Println("INFO: PostgreSQL connection pool initialized successfully")
 
-	srv := server.NewServer(&cfg, pg)
+	redisClient, err := cache.NewRedisClient(cfg.RedisURL)
+	if err != nil {
+		log.Fatalf("FATAL: failed to connect to Redis: %v", err)
+	}
+	log.Println("INFO: Redis client initialized successfully")
+
+	srv := server.NewServer(&cfg, pg, redisClient)
 	srv.MountHandlers()
 	srv.Run()
 }
