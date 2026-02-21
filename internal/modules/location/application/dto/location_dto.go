@@ -3,9 +3,10 @@ package dto
 import "github.com/google/uuid"
 
 type UpdateLocationRequest struct {
-	DriverID  uuid.UUID `json:"driver_id"`
-	Latitude  float64   `json:"latitude"`
-	Longitude float64   `json:"longitude"`
+	DriverID  uuid.UUID  `json:"driver_id"`
+	TripID    *uuid.UUID `json:"trip_id"`
+	Latitude  float64    `json:"latitude"`
+	Longitude float64    `json:"longitude"`
 }
 
 type FindNearbyRequest struct {
