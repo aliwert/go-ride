@@ -186,3 +186,7 @@ Cross-module communication flows through **port interfaces** — the matching mo
 ## License
 
 This project is open source and available under the [MIT License](LICENSE).
+
+---
+
+_You can use these services in your frontend projects, happy coding!_
