@@ -15,11 +15,13 @@ import (
 	"github.com/aliwert/go-ride/internal/modules/identity"
 	"github.com/aliwert/go-ride/internal/modules/location"
 	"github.com/aliwert/go-ride/internal/modules/matching"
+	"github.com/aliwert/go-ride/internal/modules/tracking"
 	"github.com/aliwert/go-ride/internal/modules/trip"
 	"github.com/aliwert/go-ride/internal/platform/apierror"
 	"github.com/aliwert/go-ride/internal/platform/config"
 	"github.com/aliwert/go-ride/internal/platform/database"
 	"github.com/aliwert/go-ride/internal/platform/middleware"
+	platformws "github.com/aliwert/go-ride/internal/platform/websocket"
 )
 
 type Server struct {
@@ -59,8 +61,12 @@ func (s *Server) MountHandlers() {
 	// auth middleware protects modules that require a valid JWT; identity stays public
 	authMid := middleware.RequireAuth(s.cfg.JWTSecret)
 
+	// tracking module is initialized first so location can broadcast via its port
+	hub := platformws.NewHub()
+	broadcaster := tracking.InitModule(s.fiberApp, hub)
+
 	identity.InitModule(v1, s.db.Pool, s.cfg.JWTSecret)
-	locUC := location.InitModule(v1, s.redisClient, authMid)
+	locUC := location.InitModule(v1, s.redisClient, authMid, broadcaster)
 	trip.InitModule(v1, s.db.Pool, authMid)
 	matching.InitModule(v1, locUC, authMid)
 }
