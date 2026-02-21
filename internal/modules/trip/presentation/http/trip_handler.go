@@ -8,6 +8,7 @@ import (
 	"github.com/aliwert/go-ride/internal/modules/trip/application/dto"
 	"github.com/aliwert/go-ride/internal/modules/trip/application/usecase"
 	"github.com/aliwert/go-ride/internal/modules/trip/infrastructure/persistence"
+	"github.com/aliwert/go-ride/internal/platform/apierror"
 )
 
 type TripHandler struct {
@@ -21,17 +22,15 @@ func NewTripHandler(tripUC *usecase.TripUseCase) *TripHandler {
 func (h *TripHandler) RequestTrip(c *fiber.Ctx) error {
 	var req dto.CreateTripRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "invalid request body",
-		})
+		return apierror.NewBadRequest("INVALID_REQUEST_BODY", "invalid request body")
 	}
 
-	// user's ID as the rider, ignoring any value from the body
+	// rider identity from JWT, ignoring any value from the body
 	req.RiderID = c.Locals("userID").(string)
 
 	resp, err := h.tripUC.RequestTrip(c.Context(), &req)
 	if err != nil {
-		return h.handleError(c, err)
+		return mapTripError(err)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(resp)
@@ -46,7 +45,7 @@ func (h *TripHandler) AcceptTrip(c *fiber.Ctx) error {
 
 	resp, err := h.tripUC.AcceptTrip(c.Context(), &req)
 	if err != nil {
-		return h.handleError(c, err)
+		return mapTripError(err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(resp)
@@ -59,34 +58,40 @@ func (h *TripHandler) CompleteTrip(c *fiber.Ctx) error {
 
 	resp, err := h.tripUC.CompleteTrip(c.Context(), req)
 	if err != nil {
-		return h.handleError(c, err)
+		return mapTripError(err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(resp)
 }
 
-// handleError maps known use-case / persistence errors to proper HTTP codes.
-// everything else falls through as 500 to avoid leaking internals.
-func (h *TripHandler) handleError(c *fiber.Ctx, err error) error {
+// translates domain/persistence errors into structured AppErrors
+// unknown errors pass through to the global handler which logs and returns 500
+func mapTripError(err error) error {
 	switch {
 	case errors.Is(err, usecase.ErrTripNotFound),
 		errors.Is(err, persistence.ErrTripNotFound):
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "trip not found"})
+		return apierror.NewNotFound("TRIP_NOT_FOUND", "trip not found")
 
 	case errors.Is(err, usecase.ErrTripAlreadyAccepted),
 		errors.Is(err, persistence.ErrTripAlreadyAccepted):
-		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "trip has already been accepted"})
+		return apierror.NewConflict("TRIP_ALREADY_ACCEPTED", "trip has already been accepted")
 
 	case errors.Is(err, usecase.ErrInvalidTripStatus):
-		return c.Status(fiber.StatusUnprocessableEntity).JSON(fiber.Map{"error": err.Error()})
+		return apierror.NewUnprocessable("INVALID_TRIP_STATUS", "invalid trip status for this operation")
 
-	case errors.Is(err, usecase.ErrInvalidCoordinates),
-		errors.Is(err, usecase.ErrInvalidRiderID),
-		errors.Is(err, usecase.ErrInvalidDriverID),
-		errors.Is(err, usecase.ErrInvalidTripID):
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	case errors.Is(err, usecase.ErrInvalidCoordinates):
+		return apierror.NewBadRequest("INVALID_COORDINATES", "invalid pickup or dropoff coordinates")
+
+	case errors.Is(err, usecase.ErrInvalidRiderID):
+		return apierror.NewBadRequest("INVALID_RIDER_ID", "invalid rider id")
+
+	case errors.Is(err, usecase.ErrInvalidDriverID):
+		return apierror.NewBadRequest("INVALID_DRIVER_ID", "invalid driver id")
+
+	case errors.Is(err, usecase.ErrInvalidTripID):
+		return apierror.NewBadRequest("INVALID_TRIP_ID", "invalid trip id")
 
 	default:
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
+		return err
 	}
 }

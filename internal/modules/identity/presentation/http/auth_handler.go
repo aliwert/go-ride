@@ -8,6 +8,7 @@ import (
 	"github.com/aliwert/go-ride/internal/modules/identity/application/dto"
 	"github.com/aliwert/go-ride/internal/modules/identity/application/usecase"
 	"github.com/aliwert/go-ride/internal/modules/identity/infrastructure/persistence"
+	"github.com/aliwert/go-ride/internal/platform/apierror"
 )
 
 type AuthHandler struct {
@@ -21,14 +22,12 @@ func NewAuthHandler(authUC *usecase.AuthUseCase) *AuthHandler {
 func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	var req dto.RegisterUserRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "invalid request body",
-		})
+		return apierror.NewBadRequest("INVALID_REQUEST_BODY", "invalid request body")
 	}
 
 	resp, err := h.authUC.Register(c.Context(), &req)
 	if err != nil {
-		return h.handleError(c, err)
+		return mapIdentityError(err)
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(resp)
@@ -37,37 +36,35 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	var req dto.LoginRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "invalid request body",
-		})
+		return apierror.NewBadRequest("INVALID_REQUEST_BODY", "invalid request body")
 	}
 
 	resp, err := h.authUC.Login(c.Context(), &req)
 	if err != nil {
-		return h.handleError(c, err)
+		return mapIdentityError(err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(resp)
 }
 
-// handleError maps known use-case / persistence errors to proper HTTP codes
-// everything else falls through as 500 to avoid leaking internals
-func (h *AuthHandler) handleError(c *fiber.Ctx, err error) error {
+// translates domain/persistence errors into structured AppErrors
+// the global error handler takes care of serialisation
+func mapIdentityError(err error) error {
 	switch {
 	case errors.Is(err, usecase.ErrInvalidCredentials):
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
+		return apierror.NewUnauthorized("INVALID_CREDENTIALS", "invalid credentials")
 
 	case errors.Is(err, usecase.ErrAccountSuspended):
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": err.Error()})
+		return apierror.NewForbidden("ACCOUNT_SUSPENDED", "account suspended")
 
 	case errors.Is(err, usecase.ErrInvalidRole):
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return apierror.NewBadRequest("INVALID_ROLE", "invalid role")
 
 	case errors.Is(err, usecase.ErrEmailAlreadyTaken),
 		errors.Is(err, persistence.ErrDuplicateEmail):
-		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "email already taken"})
+		return apierror.NewConflict("EMAIL_ALREADY_TAKEN", "a user with this email already exists")
 
 	default:
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
+		return err
 	}
 }

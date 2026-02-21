@@ -8,6 +8,7 @@ import (
 
 	"github.com/aliwert/go-ride/internal/modules/location/application/dto"
 	"github.com/aliwert/go-ride/internal/modules/location/application/usecase"
+	"github.com/aliwert/go-ride/internal/platform/apierror"
 )
 
 type LocationHandler struct {
@@ -21,23 +22,23 @@ func NewLocationHandler(uc *usecase.LocationUseCase) *LocationHandler {
 func (h *LocationHandler) UpdateLocation(c *fiber.Ctx) error {
 	var req dto.UpdateLocationRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+		return apierror.NewBadRequest("INVALID_REQUEST_BODY", "invalid request body")
 	}
 
-	// driver identity must come from the JWT, not the request body never trust the client
+	// driver identity must come from the JWT, not the request body, never trust the client
 	userIDStr, ok := c.Locals("userID").(string)
 	if !ok || userIDStr == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "missing user identity"})
+		return apierror.NewUnauthorized("MISSING_USER_IDENTITY", "missing user identity")
 	}
 
 	driverID, err := uuid.Parse(userIDStr)
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid driver id in token"})
+		return apierror.NewBadRequest("INVALID_DRIVER_ID", "invalid driver id in token")
 	}
 	req.DriverID = driverID
 
 	if err := h.locationUC.UpdateLocation(c.Context(), &req); err != nil {
-		return h.handleError(c, err)
+		return mapLocationError(err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "location updated"})
@@ -46,12 +47,12 @@ func (h *LocationHandler) UpdateLocation(c *fiber.Ctx) error {
 func (h *LocationHandler) FindNearby(c *fiber.Ctx) error {
 	var req dto.FindNearbyRequest
 	if err := c.QueryParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid query parameters"})
+		return apierror.NewBadRequest("INVALID_QUERY_PARAMS", "invalid query parameters")
 	}
 
 	drivers, err := h.locationUC.FindNearbyDrivers(c.Context(), &req)
 	if err != nil {
-		return h.handleError(c, err)
+		return mapLocationError(err)
 	}
 
 	ids := make([]string, len(drivers))
@@ -62,13 +63,13 @@ func (h *LocationHandler) FindNearby(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusOK).JSON(dto.NearbyDriversResponse{Drivers: ids})
 }
 
-func (h *LocationHandler) handleError(c *fiber.Ctx, err error) error {
+func mapLocationError(err error) error {
 	switch {
 	case errors.Is(err, usecase.ErrInvalidCoordinates):
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return apierror.NewBadRequest("INVALID_COORDINATES", "invalid coordinates")
 	case errors.Is(err, usecase.ErrInvalidRadius):
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+		return apierror.NewBadRequest("INVALID_RADIUS", "radius must be greater than zero")
 	default:
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
+		return err
 	}
 }
