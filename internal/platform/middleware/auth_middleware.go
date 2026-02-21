@@ -5,6 +5,8 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
+
+	"github.com/aliwert/go-ride/internal/platform/apierror"
 )
 
 // RequireAuth returns a fiber handler that validates JWT bearer tokens.
@@ -13,17 +15,13 @@ func RequireAuth(jwtSecret string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "missing authorization header",
-			})
+			return apierror.NewUnauthorized("MISSING_AUTH_HEADER", "missing authorization header")
 		}
 
 		// expect "Bearer <token>" format
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "invalid authorization format, expected: Bearer <token>",
-			})
+			return apierror.NewUnauthorized("INVALID_AUTH_FORMAT", "invalid authorization format, expected: Bearer <token>")
 		}
 
 		tokenString := parts[1]
@@ -36,23 +34,17 @@ func RequireAuth(jwtSecret string) fiber.Handler {
 			return []byte(jwtSecret), nil
 		})
 		if err != nil || !token.Valid {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "invalid or expired token",
-			})
+			return apierror.NewUnauthorized("INVALID_TOKEN", "invalid or expired token")
 		}
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "invalid token claims",
-			})
+			return apierror.NewUnauthorized("INVALID_CLAIMS", "invalid token claims")
 		}
 
 		userID, _ := claims.GetSubject()
 		if userID == "" {
-			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-				"error": "token missing subject claim",
-			})
+			return apierror.NewUnauthorized("MISSING_SUBJECT", "token missing subject claim")
 		}
 
 		role, _ := claims["role"].(string)

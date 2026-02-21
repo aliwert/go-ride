@@ -16,6 +16,7 @@ import (
 	"github.com/aliwert/go-ride/internal/modules/location"
 	"github.com/aliwert/go-ride/internal/modules/matching"
 	"github.com/aliwert/go-ride/internal/modules/trip"
+	"github.com/aliwert/go-ride/internal/platform/apierror"
 	"github.com/aliwert/go-ride/internal/platform/config"
 	"github.com/aliwert/go-ride/internal/platform/database"
 	"github.com/aliwert/go-ride/internal/platform/middleware"
@@ -34,6 +35,7 @@ func NewServer(cfg *config.Config, db *database.Postgres, redisClient *redis.Cli
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		IdleTimeout:  30 * time.Second,
+		ErrorHandler: apierror.GlobalErrorHandler,
 	})
 
 	app.Use(logger.New(logger.Config{

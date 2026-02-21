@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/aliwert/go-ride/internal/modules/matching/application/usecase"
+	"github.com/aliwert/go-ride/internal/platform/apierror"
 )
 
 type MatchingHandler struct {
@@ -25,20 +26,16 @@ type matchRequest struct {
 func (h *MatchingHandler) Match(c *fiber.Ctx) error {
 	tripID, err := uuid.Parse(c.Params("trip_id"))
 	if err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "invalid trip id",
-		})
+		return apierror.NewBadRequest("INVALID_TRIP_ID", "invalid trip id")
 	}
 
 	var req matchRequest
 	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"error": "invalid request body",
-		})
+		return apierror.NewBadRequest("INVALID_REQUEST_BODY", "invalid request body")
 	}
 
 	if err := h.matchingUC.ProcessTrip(c.Context(), tripID, req.Lat, req.Lon); err != nil {
-		return h.handleError(c, err)
+		return mapMatchingError(err)
 	}
 
 	return c.Status(fiber.StatusOK).JSON(fiber.Map{
@@ -46,11 +43,11 @@ func (h *MatchingHandler) Match(c *fiber.Ctx) error {
 	})
 }
 
-func (h *MatchingHandler) handleError(c *fiber.Ctx, err error) error {
+func mapMatchingError(err error) error {
 	switch {
 	case errors.Is(err, usecase.ErrNoDriversAvailable):
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": err.Error()})
+		return apierror.NewNotFound("NO_DRIVERS_AVAILABLE", "no drivers available nearby")
 	default:
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
+		return err
 	}
 }
