@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 
 	"github.com/aliwert/go-ride/internal/modules/location/application/dto"
 	"github.com/aliwert/go-ride/internal/modules/location/application/usecase"
@@ -22,6 +23,18 @@ func (h *LocationHandler) UpdateLocation(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
 	}
+
+	// driver identity must come from the JWT, not the request body never trust the client
+	userIDStr, ok := c.Locals("userID").(string)
+	if !ok || userIDStr == "" {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "missing user identity"})
+	}
+
+	driverID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid driver id in token"})
+	}
+	req.DriverID = driverID
 
 	if err := h.locationUC.UpdateLocation(c.Context(), &req); err != nil {
 		return h.handleError(c, err)

@@ -3,6 +3,7 @@ package persistence
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -73,8 +74,16 @@ func (r *RedisLocationRepository) FindNearbyDrivers(ctx context.Context, lat, lo
 
 		id, err := uuid.Parse(member)
 		if err != nil {
+			log.Printf("WARN: skipping unparseable driver id from geo result: %q", member)
 			continue
 		}
+
+		// guard against nil UUIDs that slipped in from earlier bug
+		if id == uuid.Nil {
+			log.Printf("WARN: skipping nil UUID in geo result")
+			continue
+		}
+
 		drivers = append(drivers, id)
 	}
 
