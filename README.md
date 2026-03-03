@@ -15,10 +15,6 @@ Modular Monolith · Clean Architecture · Domain-Driven Design
 
 </div>
 
----
-**go-ride** is a production-grade ride-hailing core system that solves the hard problems: real-time GPS tracking, concurrent trip assignment, geospatial driver matching, and event-driven workflows — all inside a single deployable binary with clean module boundaries.
----
-
 ## Key Features
 
 ### Modular Monolith with Clean Architecture
