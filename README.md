@@ -16,19 +16,7 @@ Modular Monolith · Clean Architecture · Domain-Driven Design
 </div>
 
 ---
-
-## OverviewAll done. Build passes, all five files created:
-
-File Content
-README.md Visual, badge-rich project overview with feature highlights, tech stack table, quick start, architecture diagram, and doc links
-setup.md Full Docker Compose setup guide — prerequisites, one-click scripts, exact migration commands, env var reference
-architecture.md Modular Monolith + Clean Architecture explanation, Ports & Adapters deep-dive (matching→location, location→tracking), initialization order, concurrency strategy
-api.md Complete API reference — every endpoint with request/response schemas, auth requirements, error codes, and the WebSocket tracking protocol
-
 **go-ride** is a production-grade ride-hailing core system that solves the hard problems: real-time GPS tracking, concurrent trip assignment, geospatial driver matching, and event-driven workflows — all inside a single deployable binary with clean module boundaries.
-
-This is not a CRUD tutorial. It's an engineering-first backend that treats **concurrency**, **idempotency**, and **separation of concerns** as first-class citizens.
-
 ---
 
 ## Key Features
